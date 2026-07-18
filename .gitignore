@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+
+# dochealer runtime cache (index.json IS committed; chroma is rebuildable)
+.dochealer/chroma/
+
+# Secrets / env
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db

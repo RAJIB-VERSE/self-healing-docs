@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dochealer"
+version = "0.1.0"
+description = "Self-healing technical documentation: a GitHub Action that detects and repairs stale docs when code changes."
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.40",
+    "anthropic>=0.34",
+    "chromadb>=0.5",
+    "PyGithub>=2.3",
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+dochealer = "dochealer.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
