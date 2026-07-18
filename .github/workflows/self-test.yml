@@ -1,0 +1,25 @@
+name: Self-test (dogfood)
+
+# Run dochealer on its own PRs. Requires the OPENAI_API_KEY secret;
+# skips gracefully when absent (e.g. on forks).
+on:
+  pull_request:
+    paths: ["src/**/*.py"]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dochealer:
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.head_ref, 'dochealer/') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./
+        with:
+          llm-api-key: ${{ secrets.OPENAI_API_KEY }}
+          docs-path: "docs"
+          mode: "flag-only"

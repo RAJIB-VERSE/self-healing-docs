@@ -1,0 +1,66 @@
+name: "Self-Healing Docs"
+description: >-
+  Detects when code changes make documentation stale, and either opens a PR
+  with corrected docs or flags the sections for human review.
+author: "dochealer"
+branding:
+  icon: "book-open"
+  color: "green"
+
+inputs:
+  llm-api-key:
+    description: "API key for the LLM provider (OpenAI or Anthropic)"
+    required: true
+  llm-provider:
+    description: "LLM provider: openai or anthropic"
+    required: false
+    default: "openai"
+  llm-model:
+    description: "Override the default model (gpt-4o / claude-sonnet-4-6)"
+    required: false
+    default: ""
+  docs-path:
+    description: "Path to the documentation directory"
+    required: false
+    default: "docs"
+  include-readme:
+    description: "Also check README.md"
+    required: false
+    default: "true"
+  confidence-threshold:
+    description: "Minimum combined confidence (0-1) for auto-fix PRs"
+    required: false
+    default: "0.8"
+  mode:
+    description: "fix (open fix PRs) or flag-only (comments only)"
+    required: false
+    default: "fix"
+  github-token:
+    description: "Token used for PRs and comments"
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  stale-count:
+    description: "Number of doc sections confirmed stale"
+  fixed-count:
+    description: "Number of sections auto-fixed in the fix PR"
+  flagged-count:
+    description: "Number of sections flagged for human review"
+  fix-pr-url:
+    description: "URL of the auto-generated fix PR (empty if none)"
+  report-json:
+    description: "Full machine-readable run report"
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  env:
+    DOCHEALER_LLM_API_KEY: ${{ inputs.llm-api-key }}
+    DOCHEALER_LLM_PROVIDER: ${{ inputs.llm-provider }}
+    DOCHEALER_LLM_MODEL: ${{ inputs.llm-model }}
+    DOCHEALER_DOCS_PATH: ${{ inputs.docs-path }}
+    DOCHEALER_INCLUDE_README: ${{ inputs.include-readme }}
+    DOCHEALER_CONFIDENCE_THRESHOLD: ${{ inputs.confidence-threshold }}
+    DOCHEALER_MODE: ${{ inputs.mode }}
+    DOCHEALER_GITHUB_TOKEN: ${{ inputs.github-token }}

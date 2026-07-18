@@ -117,6 +117,56 @@ def detect_changes(settings: Settings, base_ref: str, head_ref: str = "HEAD") ->
     return diff_to_changed_chunks(settings.repo_root, base_ref, head_ref)
 
 
+def run_action(settings: Settings, base_ref: str, head_branch: str, labels: list[str]) -> int:
+    """Full Action run: index → detect → repair → report. Never fails the host PR."""
+    import json
+    import os
+
+    from dochealer.github.commenter import LiveGitHub, is_own_pr
+    from dochealer.github.pr_writer import create_fix_pr
+    from dochealer.llm.client import make_client
+    from dochealer.report import report_json, summary_comment
+
+    if is_own_pr(head_branch, labels):
+        log.info("[report] skipping dochealer's own PR (loop safety)")
+        return 0
+
+    graph = load_or_build_index(settings)
+    try:
+        changes = detect_changes(settings, base_ref)
+    except Exception as exc:  # noqa: BLE001 — infra failure must not fail the PR
+        log.warning("[detect] diff failed: %s", exc)
+        changes = []
+
+    client = make_client(settings.llm_provider, settings.llm_api_key, settings.llm_model)
+    report = run_pipeline(settings, graph, changes, client)
+
+    backend = LiveGitHub(settings)
+    if report.fixed and settings.mode == "fix":
+        try:
+            report.fix_pr_url = create_fix_pr(report.fixed, graph, settings, backend)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("[report] fix PR failed: %s — downgrading fixes to flags", exc)
+            report.notes.append(f"fix PR creation failed: {exc}")
+    from dochealer.config import SUMMARY_MARKER
+
+    try:
+        backend.upsert_comment(settings.pr_number, SUMMARY_MARKER,
+                               summary_comment(report, graph))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("[report] summary comment failed: %s", exc)
+
+    output_path = os.environ.get("GITHUB_OUTPUT")
+    if output_path:
+        payload = report_json(report)
+        with open(output_path, "a", encoding="utf-8") as fh:
+            for key in ("stale_count", "fixed_count", "flagged_count"):
+                fh.write(f"{key.replace('_', '-')}={payload[key]}\n")
+            fh.write(f"fix-pr-url={report.fix_pr_url}\n")
+            fh.write(f"report-json={json.dumps(payload)}\n")
+    return 0
+
+
 def cli(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(prog="dochealer")
@@ -126,11 +176,20 @@ def cli(argv: list[str] | None = None) -> int:
     index_cmd.add_argument("--repo", default=".", help="repo root (default: cwd)")
     index_cmd.add_argument("--docs-path", default="docs")
 
+    run_cmd = sub.add_parser("run", help="full pipeline (inside the GitHub Action)")
+    run_cmd.add_argument("--base-ref", required=True)
+    run_cmd.add_argument("--head-branch", default="")
+    run_cmd.add_argument("--labels", default="", help="comma-separated PR labels")
+
     args = parser.parse_args(argv)
     if args.command == "index":
         settings = Settings.from_env(repo_root=Path(args.repo).resolve())
         settings.docs_path = args.docs_path
         build_index(settings)
+    elif args.command == "run":
+        settings = Settings.from_env()
+        labels = [x.strip() for x in args.labels.split(",") if x.strip()]
+        return run_action(settings, args.base_ref, args.head_branch, labels)
     return 0
 
 
