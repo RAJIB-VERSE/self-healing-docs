@@ -1,0 +1,7 @@
+# Shell scripts must stay LF — the Action container runs them with /bin/sh
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
