@@ -33,3 +33,26 @@ class FakeEmbedder:
 @pytest.fixture
 def fake_embedder() -> FakeEmbedder:
     return FakeEmbedder()
+
+
+class FakeLLMClient:
+    """Returns canned pydantic payloads keyed by substrings found in the prompt.
+
+    responses: list of (needle, payload_dict). First needle found in the user
+    prompt wins; payload is validated against the requested schema. A needle of
+    "" acts as the default. Raises the configured exception when `fail` is set.
+    """
+
+    def __init__(self, responses, fail: Exception | None = None) -> None:
+        self.responses = responses
+        self.fail = fail
+        self.calls: list[str] = []
+
+    def chat_json(self, system: str, user: str, schema):
+        self.calls.append(user)
+        if self.fail is not None:
+            raise self.fail
+        for needle, payload in self.responses:
+            if needle in user:
+                return schema.model_validate(payload)
+        raise AssertionError(f"FakeLLMClient: no canned response matches prompt:\n{user[:200]}")
