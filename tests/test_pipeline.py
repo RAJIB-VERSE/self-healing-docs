@@ -116,6 +116,7 @@ def test_report_json_counts():
     assert payload["stale_count"] == 1
     assert payload["fixed_count"] == 1
     assert payload["flagged_count"] == 0
+    assert payload["llm_calls"] == 0
     assert payload["skipped"] == ["b"]
 
 

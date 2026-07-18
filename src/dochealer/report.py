@@ -59,7 +59,8 @@ def summary_comment(report: RunReport, graph: LinkGraph) -> str:
 
     parts.append(
         f"\n<sub>dochealer · {report.analyzed_changes} code "
-        f"change{'s' if report.analyzed_changes != 1 else ''} analyzed</sub>"
+        f"change{'s' if report.analyzed_changes != 1 else ''} analyzed · "
+        f"{report.llm_calls} LLM call{'s' if report.llm_calls != 1 else ''}</sub>"
     )
     return "\n".join(parts)
 
@@ -70,6 +71,7 @@ def report_json(report: RunReport) -> dict:
         "fixed_count": len(report.fixed),
         "flagged_count": len(report.flagged),
         "verified_ok_count": len(report.verified_ok),
+        "llm_calls": report.llm_calls,
         "skipped": report.skipped,
         "fix_pr_url": report.fix_pr_url,
         "notes": report.notes,

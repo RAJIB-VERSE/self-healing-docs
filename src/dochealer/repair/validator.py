@@ -18,10 +18,13 @@ log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "You are a documentation quality gate. Given the original section, a proposed "
-    "corrected section, and the new code, verify three things: "
+    "corrected section, the staleness diagnosis, and the new code, verify three "
+    "things: "
     "(1) ACCURACY — every claim in the corrected section is true of the new code; "
     "(2) PRESERVATION — content that was already correct was kept, not rewritten "
-    "or dropped; (3) STYLE — tone and formatting match the original. "
+    "or dropped. IMPORTANT: content the diagnosis identifies as stale is SUPPOSED "
+    "to change — updating it is the goal, never a preservation failure; "
+    "(3) STYLE — tone, formatting, and heading structure match the original. "
     "Fail the correction if any check fails. Be strict: a wrong 'fix' is worse "
     "than no fix."
 )
@@ -43,6 +46,7 @@ def validate_correction(
     changes: list[ChangedChunk],
     client: LLMClient,
     settings: Settings,
+    diagnosis: str = "",
 ) -> Correction:
     """Return the correction with validated/confidence updated. Never raises."""
     budget = settings.max_code_context_chars // max(len(changes), 1)
@@ -52,6 +56,8 @@ def validate_correction(
     )
     prompt = (
         f"## Original section\n{section.content}\n\n"
+        f"## Staleness diagnosis (what the correction is SUPPOSED to change)\n"
+        f"{diagnosis or correction.summary}\n\n"
         f"## Proposed corrected section\n{correction.new_content}\n\n"
         f"## New code\n{code}\n\n"
         "Run the three checks and return your verdict."

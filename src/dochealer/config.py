@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Bump when CodeChunk/DocSection ID formats or parser semantics change (Rules.md §2).
-INDEX_VERSION = 1
+# v2: module-level UPPER_SNAKE constants are now extracted as config chunks.
+INDEX_VERSION = 2
 
 INDEX_DIR = ".dochealer"
 INDEX_FILE = "index.json"

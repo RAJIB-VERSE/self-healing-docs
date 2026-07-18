@@ -60,6 +60,24 @@ def _prompt(
     return "\n".join(parts)
 
 
+def _strip_prompt_echo(new_content: str, section: DocSection) -> str:
+    """Drop prompt scaffolding smaller models sometimes echo above the section.
+
+    If the section's original heading line appears in the output but not on the
+    first line, everything before it is echo (e.g. '## Current documentation
+    section (...)') — cut it. When the heading itself was legitimately rewritten
+    there's nothing to anchor on, so leave the output untouched.
+    """
+    heading = section.content.splitlines()[0].strip() if section.content else ""
+    if not heading.startswith("#"):
+        return new_content
+    lines = new_content.splitlines()
+    for i, line in enumerate(lines):
+        if line.strip() == heading:
+            return "\n".join(lines[i:]) if i > 0 else new_content
+    return new_content
+
+
 def generate_correction(
     section: DocSection,
     verdict: StalenessVerdict,
@@ -75,10 +93,11 @@ def generate_correction(
     except LLMUnavailable as exc:
         log.warning("[repair] correction unavailable for %s: %s", section.id, exc)
         return None
-    todos = [line for line in payload.new_content.splitlines() if "TODO(dochealer)" in line]
+    new_content = _strip_prompt_echo(payload.new_content, section)
+    todos = [line for line in new_content.splitlines() if "TODO(dochealer)" in line]
     return Correction(
         section_id=section.id,
-        new_content=payload.new_content,
+        new_content=new_content,
         summary=payload.summary,
         confidence=payload.confidence,
         todo_markers=todos,

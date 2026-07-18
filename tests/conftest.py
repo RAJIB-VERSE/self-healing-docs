@@ -47,8 +47,10 @@ class FakeLLMClient:
         self.responses = responses
         self.fail = fail
         self.calls: list[str] = []
+        self.calls_made = 0
 
     def chat_json(self, system: str, user: str, schema):
+        self.calls_made += 1
         self.calls.append(user)
         if self.fail is not None:
             raise self.fail

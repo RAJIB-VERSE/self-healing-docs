@@ -89,16 +89,36 @@ With a paid OpenAI or Anthropic key (higher rate limits, better for large PRs):
 
 ## Local usage
 
+Run the same pipeline on your machine before pushing — no GitHub Action needed:
+
 ```bash
 pip install -e .
-dochealer index --repo /path/to/repo --docs-path docs   # build the index
+
+# build the code-to-docs index
+dochealer index --repo . --docs-path docs
+
+# check your branch's changes against main (uses the free GitHub Models tier)
+export DOCHEALER_LLM_PROVIDER=github
+export DOCHEALER_LLM_API_KEY=$(gh auth token)
+dochealer check --base-ref main
+
+# write high-confidence fixes straight into your working tree
+dochealer check --base-ref main --apply
 ```
+
+`check` exits `1` when staleness is found, so it drops straight into a
+pre-push hook or any CI gate.
 
 ## Design guarantees
 
 - **Never fails your PR** — findings arrive as comments, infra errors degrade
-  gracefully. Exit code is always 0.
-- **Filter before LLM** — PRs with no doc impact cost $0 in API calls.
+  gracefully. Exit code is always 0 (the local `check` command *does* signal via
+  exit code, by design).
+- **Filter before LLM** — PRs with no doc impact cost $0 in API calls; every
+  run's comment footer shows exactly how many LLM calls were made.
+- **Constants tracked too** — module-level `UPPER_SNAKE` values (default
+  timeouts, retry counts…) are indexed, so a changed default that docs quote
+  gets caught.
 - **Loop-safe** — dochealer skips its own fix PRs (branch prefix + label).
 - **Hard caps** — max 20 verifications and 10 corrections per run; overflow is
   flagged, never silently dropped.

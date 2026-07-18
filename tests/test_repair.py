@@ -80,6 +80,20 @@ def test_correction_none_on_llm_failure(settings):
     ) is None
 
 
+def test_prompt_echo_stripped(settings):
+    """Smaller models echo prompt scaffolding above the section; it must be cut."""
+    echoed = dict(GOOD_CORRECTION)
+    echoed["new_content"] = (
+        "## Current documentation section (Sample project › Usage)\n\n" + CORRECTED
+    )
+    client = FakeLLMClient(responses=[("", echoed)])
+    correction = generate_correction(
+        usage_section(settings), verdict(), [signature_change()], client, settings
+    )
+    assert correction.new_content == CORRECTED.rstrip("\n")
+    assert "Current documentation section" not in correction.new_content
+
+
 def test_validation_pass_sets_min_confidence(settings):
     gen = FakeLLMClient(responses=[("", GOOD_CORRECTION)])
     correction = generate_correction(

@@ -6,13 +6,32 @@ Rules/Architecture (Rules.md §6).
 
 ## Current state
 
-- **Phase**: 4 complete (code + tests). Remaining: Docker build verification (no
-  Docker on this machine — CI's `docker` job covers it), then Phase 5 (real-repo
-  eval) and Phase 6 (marketplace polish), both of which need a GitHub remote.
-- **Tests**: 60 passing (`pytest -q`), ruff clean
-- **Commits**: phase0 → phase1 → phase2 → phase3 → phase4 (one commit per gate)
-- **Env**: Windows, git-bash; venv at `.venv/` (`.venv/Scripts/python`); Python 3.14
-  local (project targets 3.11+ — CI/Docker pin 3.11). **No Docker locally.**
+- **Phase**: 4 complete + post-phase-4 improvements (below). Repo live at
+  github.com/RAJIB-VERSE/self-healing-docs, CI green. Remaining: Phase 5 eval
+  (metrics table), Phase 6 (marketplace release + demo video).
+- **Tests**: 67 passing, ruff clean. **Live E2E verified 2026-07-18**: `dochealer
+  check` on a temp repo with a changed constant → detected STALE (conf 1.00) →
+  auto-fixed the doc → clean 1-line diff, via free GitHub Models API.
+- **Env**: Windows, git-bash; venv at `.venv/`; gh CLI at
+  `"/c/Program Files/GitHub CLI/gh.exe"` (NOT on bash PATH), account RAJIB-VERSE.
+
+## Post-phase-4 improvements (2026-07-18, user-requested)
+
+- **INDEX_VERSION bumped to 2**: module-level UPPER_SNAKE constants are now
+  extracted as `config` chunks (closes old decision #3 — the fixture's Timeouts
+  section had zero links; regression test in test_linker).
+- **`dochealer check` CLI**: local pipeline run, `--apply` writes fixes to the
+  working tree, exit 1 on staleness (pre-push-hook friendly).
+- **LLM call counter**: `_BaseClient.calls_made` → `RunReport.llm_calls` → shown
+  in comment footer and `check` output.
+- **Validator now receives the staleness diagnosis** — live E2E exposed that it
+  failed correct fixes for "not preserving" the very content that was supposed
+  to change. Prompt explicitly says diagnosed-stale content SHOULD change.
+- **`_strip_prompt_echo` in corrector**: gpt-4o-mini echoed prompt scaffolding
+  ("## Current documentation section (…)") above the fixed section; stripped by
+  anchoring on the original heading line.
+- **Splicing preserves the blank-line gap** before the next section (LLMs trim
+  trailing blanks; without this the fix corrupted adjacent-heading spacing).
 
 ## Decisions made (beyond the planning docs)
 

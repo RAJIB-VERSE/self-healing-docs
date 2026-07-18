@@ -126,4 +126,5 @@ class RunReport(BaseModel):
     flagged: list[StalenessVerdict] = Field(default_factory=list)
     skipped: list[str] = Field(default_factory=list)  # section ids skipped (caps/errors)
     notes: list[str] = Field(default_factory=list)  # warnings for the summary comment
+    llm_calls: int = 0  # transparency: shown in the comment footer
     fix_pr_url: str = ""

@@ -96,7 +96,8 @@ def run_pipeline(
             continue
         corrections_budget -= 1
         correction = validate_correction(
-            section, correction, changes_by_section[verdict.section_id], client, settings
+            section, correction, changes_by_section[verdict.section_id], client, settings,
+            diagnosis=verdict.diagnosis,
         )
 
         confidence = min(verdict.confidence, correction.confidence)
@@ -115,6 +116,7 @@ def run_pipeline(
                      len(correction.todo_markers))
     if corrections_budget <= 0:
         report.notes.append("correction cap reached; remaining stale sections flagged")
+    report.llm_calls = getattr(client, "calls_made", 0)
     return report
 
 
@@ -172,6 +174,50 @@ def run_action(settings: Settings, base_ref: str, head_branch: str, labels: list
     return 0
 
 
+def run_check(settings: Settings, base_ref: str, apply: bool) -> int:
+    """Local pre-push check: run the pipeline against uncommitted/branch changes.
+
+    Prints the report to the terminal; --apply writes auto-fixes into the
+    working tree (no git side effects — you review and commit yourself).
+    """
+    from dochealer.github.pr_writer import apply_corrections_to_files
+    from dochealer.llm.client import make_client
+    from dochealer.report import report_json
+
+    if not settings.llm_api_key:
+        log.error("[check] no API key: set DOCHEALER_LLM_API_KEY "
+                  "(a GitHub token works with DOCHEALER_LLM_PROVIDER=github)")
+        return 2
+
+    graph = load_or_build_index(settings)
+    changes = detect_changes(settings, base_ref)
+    client = make_client(settings.llm_provider, settings.llm_api_key, settings.llm_model)
+    report = run_pipeline(settings, graph, changes, client)
+
+    print()  # summary block per Design.md §3
+    print(f"[report] {len(report.verified_ok)} verified accurate · "
+          f"{len(report.fixed)} auto-fixable · {len(report.flagged)} need review · "
+          f"{len(report.skipped)} skipped · {report.llm_calls} LLM calls")
+    for verdict in report.flagged:
+        print(f"[report] REVIEW {verdict.section_id}: {verdict.diagnosis}")
+    for correction in report.fixed:
+        print(f"[report] FIX {correction.section_id}: {correction.summary}")
+
+    if apply and report.fixed:
+        files = apply_corrections_to_files(report.fixed, graph, settings.repo_root)
+        for rel_path, content in files.items():
+            (settings.repo_root / rel_path).write_text(content, encoding="utf-8")
+            print(f"[report] wrote {rel_path}")
+    elif report.fixed:
+        print("[report] run again with --apply to write these fixes to disk")
+
+    import json
+
+    print(json.dumps(report_json(report), indent=2))
+    # exit 1 when staleness found → usable in pre-push hooks / CI gates
+    return 1 if (report.fixed or report.flagged) else 0
+
+
 def cli(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(prog="dochealer")
@@ -186,6 +232,14 @@ def cli(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("--head-branch", default="")
     run_cmd.add_argument("--labels", default="", help="comma-separated PR labels")
 
+    check_cmd = sub.add_parser("check", help="local pre-push doc check (no GitHub needed)")
+    check_cmd.add_argument("--repo", default=".", help="repo root (default: cwd)")
+    check_cmd.add_argument("--base-ref", default="main",
+                           help="ref to diff against (default: main)")
+    check_cmd.add_argument("--docs-path", default="docs")
+    check_cmd.add_argument("--apply", action="store_true",
+                           help="write auto-fixes into the working tree")
+
     args = parser.parse_args(argv)
     if args.command == "index":
         settings = Settings.from_env(repo_root=Path(args.repo).resolve())
@@ -195,6 +249,10 @@ def cli(argv: list[str] | None = None) -> int:
         settings = Settings.from_env()
         labels = [x.strip() for x in args.labels.split(",") if x.strip()]
         return run_action(settings, args.base_ref, args.head_branch, labels)
+    elif args.command == "check":
+        settings = Settings.from_env(repo_root=Path(args.repo).resolve())
+        settings.docs_path = args.docs_path
+        return run_check(settings, args.base_ref, args.apply)
     return 0
 
 

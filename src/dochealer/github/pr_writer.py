@@ -48,6 +48,13 @@ def apply_corrections_to_files(
         sections = [(graph.section_by_id(c.section_id), c) for c in items]
         for section, correction in sorted(sections, key=lambda t: -t[0].lineno):
             new_lines = correction.new_content.splitlines()
+            # preserve the blank-line gap before the next section: LLMs often trim it
+            old_lines = lines[section.lineno - 1 : section.end_lineno]
+            while old_lines and not old_lines[-1].strip():
+                if new_lines and not new_lines[-1].strip():
+                    break
+                new_lines.append("")
+                old_lines.pop()
             lines[section.lineno - 1 : section.end_lineno] = new_lines
         out[path] = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
     return out

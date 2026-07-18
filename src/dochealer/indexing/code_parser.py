@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import logging
+import re
 from pathlib import Path
 
 from dochealer.config import Settings
@@ -17,6 +18,7 @@ log = logging.getLogger(__name__)
 
 _CLI_DECORATORS = {"command", "group", "app.command", "cli.command"}
 _CONFIG_BASE_NAMES = {"BaseSettings", "BaseModel"}  # pydantic config-ish classes
+_CONST_NAME_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$")  # UPPER_SNAKE
 
 
 def parse_repo(settings: Settings) -> list[CodeChunk]:
@@ -59,6 +61,10 @@ def parse_source(source: str, rel_path: str) -> list[CodeChunk]:
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     chunks.append(_function_chunk(item, rel_path, lines, parent=node.name))
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            const = _constant_chunk(node, rel_path, lines)
+            if const is not None:
+                chunks.append(const)
     return chunks
 
 
@@ -113,6 +119,36 @@ def _class_chunk(node: ast.ClassDef, rel_path: str, lines: list[str]) -> CodeChu
         qualname=node.name,
         signature=f"class {node.name}{base_str}",
         docstring=ast.get_docstring(node) or "",
+        source=_segment(lines, node),
+        lineno=node.lineno,
+        end_lineno=node.end_lineno or node.lineno,
+    )
+
+
+def _constant_chunk(
+    node: ast.Assign | ast.AnnAssign, rel_path: str, lines: list[str]
+) -> CodeChunk | None:
+    """Module-level UPPER_SNAKE constants (e.g. DEFAULT_TIMEOUT = 30) as config chunks.
+
+    Docs frequently state default values; without these chunks a changed constant
+    would never be linked to the section describing it (Memory.md decision #3).
+    """
+    if isinstance(node, ast.Assign):
+        if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+            return None
+        name = node.targets[0].id
+    else:  # AnnAssign
+        if not isinstance(node.target, ast.Name) or node.value is None:
+            return None
+        name = node.target.id
+    if not _CONST_NAME_RE.match(name):
+        return None
+    return CodeChunk(
+        path=rel_path,
+        kind="config",
+        name=name,
+        qualname=name,
+        signature=_segment(lines, node).splitlines()[0],
         source=_segment(lines, node),
         lineno=node.lineno,
         end_lineno=node.end_lineno or node.lineno,

@@ -47,6 +47,7 @@ def _extract_json(text: str) -> str:
 class _BaseClient:
     def __init__(self, model: str) -> None:
         self._model = model
+        self.calls_made = 0  # surfaced in the PR comment footer (Design.md §2)
 
     def _complete(self, system: str, user: str) -> str:  # pragma: no cover - provider-specific
         raise NotImplementedError
@@ -59,6 +60,7 @@ class _BaseClient:
         last_error: Exception | None = None
         for attempt in (1, 2):  # one retry per Rules.md §3
             try:
+                self.calls_made += 1
                 raw = self._complete(system, prompt)
                 return schema.model_validate(json.loads(_extract_json(raw)))
             except (json.JSONDecodeError, ValidationError) as exc:

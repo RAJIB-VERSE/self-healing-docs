@@ -11,6 +11,11 @@ def test_heuristic_links_fixture(settings):
     pairs = {(ln.doc_id, ln.chunk_id) for ln in links}
     assert ("docs/guide.md#sample-project-usage", "src/app.py::get_user") in pairs
     assert ("docs/guide.md#sample-project-configuration-retries", "src/app.py::Settings") in pairs
+    # constants link too (regression: Timeouts section had zero links before v2)
+    assert (
+        "docs/guide.md#sample-project-configuration-timeouts",
+        "src/app.py::DEFAULT_TIMEOUT",
+    ) in pairs
     # unrelated section links to nothing
     assert not any(d == "docs/guide.md#sample-project-unrelated-section" for d, _ in pairs)
 
