@@ -151,4 +151,3 @@ MIT
 
 ## Acknowledgements
 
-This project was developed with the assistance of Claude, an AI assistant from Anthropic.
