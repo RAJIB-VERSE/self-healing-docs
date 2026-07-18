@@ -30,10 +30,15 @@ def build_index(settings: Settings) -> LinkGraph:
     chunks = parse_repo(settings)
     sections = parse_docs(settings)
     embedder = None
-    if settings.llm_api_key and settings.llm_provider == "openai":
+    if settings.llm_api_key and settings.llm_provider in ("openai", "github"):
         from dochealer.indexing.embedder import OpenAIEmbedder
+        from dochealer.llm.client import GITHUB_MODELS_BASE_URL
 
-        embedder = OpenAIEmbedder(settings.llm_api_key, settings.embedding_model)
+        base_url = GITHUB_MODELS_BASE_URL if settings.llm_provider == "github" else ""
+        model = settings.embedding_model
+        if settings.llm_provider == "github" and "/" not in model:
+            model = f"openai/{model}"  # GitHub Models namespaces model IDs
+        embedder = OpenAIEmbedder(settings.llm_api_key, model, base_url=base_url)
     graph = build_graph(chunks, sections, settings, embedder=embedder)
     save_graph(graph, settings.index_path)
     log.info("[index] wrote %s", settings.index_path)

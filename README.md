@@ -33,6 +33,9 @@ lives in your CI pipeline and catches the drift on every PR.
 
 ## Install
 
+**Free option (no API key needed)** — uses the [GitHub Models](https://github.blog/ai-and-ml/llms/solving-the-inference-problem-for-open-source-ai-projects-with-github-models/)
+free tier via the workflow's built-in token:
+
 ```yaml
 # .github/workflows/dochealer.yml
 name: Doc check
@@ -43,6 +46,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  models: read          # unlocks the free GitHub Models tier
 
 jobs:
   dochealer:
@@ -51,7 +55,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: <owner>/self-healing-docs@v1
+      - uses: RAJIB-VERSE/self-healing-docs@v1
+        with:
+          llm-api-key: ${{ github.token }}
+          llm-provider: "github"
+```
+
+With a paid OpenAI or Anthropic key (higher rate limits, better for large PRs):
+
+```yaml
+      - uses: RAJIB-VERSE/self-healing-docs@v1
         with:
           llm-api-key: ${{ secrets.OPENAI_API_KEY }}
           docs-path: "docs"
@@ -61,9 +74,9 @@ jobs:
 
 | Input | Default | Description |
 |---|---|---|
-| `llm-api-key` | *(required)* | OpenAI or Anthropic API key |
-| `llm-provider` | `openai` | `openai` or `anthropic` |
-| `llm-model` | provider default | Override model (`gpt-4o` / `claude-sonnet-4-6`) |
+| `llm-api-key` | *(required)* | API key — `${{ github.token }}` for the free tier, or an OpenAI/Anthropic key |
+| `llm-provider` | `openai` | `openai`, `anthropic`, or `github` (free GitHub Models tier) |
+| `llm-model` | provider default | Override model (`gpt-4o` / `claude-sonnet-4-6` / `openai/gpt-4o-mini`) |
 | `docs-path` | `docs` | Documentation directory |
 | `include-readme` | `true` | Also check `README.md` |
 | `confidence-threshold` | `0.8` | Minimum confidence for auto-fix PRs |

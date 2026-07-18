@@ -16,7 +16,12 @@ log = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
-DEFAULT_MODELS = {"openai": "gpt-4o", "anthropic": "claude-sonnet-4-6"}
+DEFAULT_MODELS = {
+    "openai": "gpt-4o",
+    "anthropic": "claude-sonnet-4-6",
+    "github": "openai/gpt-4o",  # GitHub Models: free tier, OpenAI-compatible
+}
+GITHUB_MODELS_BASE_URL = "https://models.github.ai/inference"
 _TIMEOUT_S = 60.0
 
 
@@ -66,11 +71,13 @@ class _BaseClient:
 
 
 class OpenAIClient(_BaseClient):
-    def __init__(self, api_key: str, model: str = "") -> None:
+    """OpenAI, or any OpenAI-compatible endpoint (e.g. GitHub Models) via base_url."""
+
+    def __init__(self, api_key: str, model: str = "", base_url: str = "") -> None:
         super().__init__(model or DEFAULT_MODELS["openai"])
         from openai import OpenAI  # deferred: keep importable offline
 
-        self._client = OpenAI(api_key=api_key, timeout=_TIMEOUT_S)
+        self._client = OpenAI(api_key=api_key, base_url=base_url or None, timeout=_TIMEOUT_S)
 
     def _complete(self, system: str, user: str) -> str:
         response = self._client.chat.completions.create(
@@ -102,4 +109,8 @@ class AnthropicClient(_BaseClient):
 def make_client(provider: str, api_key: str, model: str = "") -> LLMClient:
     if provider == "anthropic":
         return AnthropicClient(api_key, model)
+    if provider == "github":
+        return OpenAIClient(
+            api_key, model or DEFAULT_MODELS["github"], base_url=GITHUB_MODELS_BASE_URL
+        )
     return OpenAIClient(api_key, model)

@@ -16,6 +16,15 @@ Rules/Architecture (Rules.md §6).
 
 ## Decisions made (beyond the planning docs)
 
+0. **LLM provider = GitHub Models free tier (2026-07-18, user decision).** User has no
+   paid OpenAI/Anthropic key. Added third provider `github`: OpenAI-compatible endpoint
+   `https://models.github.ai/inference`, auth = GitHub token (in Actions: the built-in
+   `github.token` + `models: read` job permission — zero secrets). Default model
+   `openai/gpt-4o`; dogfood workflow uses `openai/gpt-4o-mini` (15 req/min vs 10).
+   Free-tier limits: ~8k tokens in / 4k out per request, 50–150 req/day — fine for
+   dogfood + Phase 5 eval, documented as "paid key for large PRs" in README.
+   GitHub account: **RAJIB-VERSE** (gh CLI authenticated on this machine).
+
 1. **Kickoff defaults**: user said "continue with the build" without answering open
    questions → Python 3.11+, OpenAI primary, Anthropic behind `llm-provider` input.
 2. **Embedding comparison is brute-force in-process** (embedder.py); ChromaDB is a

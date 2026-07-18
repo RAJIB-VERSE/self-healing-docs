@@ -9,14 +9,18 @@ branding:
 
 inputs:
   llm-api-key:
-    description: "API key for the LLM provider (OpenAI or Anthropic)"
+    description: >-
+      API key for the LLM provider. For the free GitHub Models tier
+      (llm-provider: github), pass the workflow's github.token and grant the
+      job `models: read` permission — no paid key needed.
     required: true
   llm-provider:
-    description: "LLM provider: openai or anthropic"
+    description: "LLM provider: openai, anthropic, or github (free GitHub Models tier)"
     required: false
     default: "openai"
   llm-model:
-    description: "Override the default model (gpt-4o / claude-sonnet-4-6)"
+    description: >-
+      Override the default model (gpt-4o / claude-sonnet-4-6 / openai/gpt-4o)
     required: false
     default: ""
   docs-path:

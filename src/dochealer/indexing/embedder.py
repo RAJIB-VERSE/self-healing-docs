@@ -22,10 +22,14 @@ class EmbeddingBackend(Protocol):
 
 
 class OpenAIEmbedder:
-    def __init__(self, api_key: str, model: str = "text-embedding-3-small") -> None:
+    """OpenAI, or any OpenAI-compatible endpoint (e.g. GitHub Models) via base_url."""
+
+    def __init__(
+        self, api_key: str, model: str = "text-embedding-3-small", base_url: str = ""
+    ) -> None:
         from openai import OpenAI  # deferred import: keep module importable offline
 
-        self._client = OpenAI(api_key=api_key)
+        self._client = OpenAI(api_key=api_key, base_url=base_url or None)
         self._model = model
 
     def embed(self, texts: list[str]) -> list[list[float]]:
